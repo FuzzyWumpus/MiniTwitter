@@ -11,7 +11,7 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 import javax.swing.JOptionPane;
-
+/*Contains our logic for a custom Tree that uses users and groups instead of the standard JTree logic. */
 public class TreeView extends JPanel {
 
     protected DefaultMutableTreeNode rootNode;
@@ -19,6 +19,7 @@ public class TreeView extends JPanel {
     protected JTree tree;
     protected DefaultMutableTreeNode lastSelectedNode;
     private Component root;
+
     public TreeView() {
         rootNode = new DefaultMutableTreeNode("Root");
         treeModel = new DefaultTreeModel(rootNode);
@@ -35,7 +36,7 @@ public class TreeView extends JPanel {
         Border treeViewT = BorderFactory.createTitledBorder("Tree View");
         treeView.setBorder(treeViewT);
 
-        Font customFont = new Font(tree.getFont().getName(), Font.BOLD, tree.getFont().getSize() + 2);
+        Font customFont = new Font("Monospaced", Font.PLAIN, 18);
         tree.setCellRenderer(new MyTreeCellRenderer(customFont));
 
         add(treeView);
@@ -49,7 +50,7 @@ public class TreeView extends JPanel {
     }
 
     public DefaultMutableTreeNode addObject(Object child) {
-        DefaultMutableTreeNode parentNode = lastSelectedNode;
+        DefaultMutableTreeNode parentNode = getSelectedNode();
 
         if (parentNode == null) {
             parentNode = rootNode;
@@ -70,16 +71,17 @@ public class TreeView extends JPanel {
         if (selectedNode != null && (selectedNode == rootNode || isGroupNode(selectedNode))) {
             addObject(new User(name, this)); // Create a new User instance with the provided name
         } else {
-            errorMessage("Cannot add user to a user node.", "Error");
+            errorMessage("Cannot add user to a user node.", "Error"); //Exception handler
         }
     }
-
+    
     public void addGroup(String name) {
         DefaultMutableTreeNode selectedNode = getSelectedNode();
         if (selectedNode != null && (selectedNode == rootNode || isGroupNode(selectedNode))) {
-            addObject(new NodeData("Group: " + name, true));
+            Group group = new Group("Group: " + name);
+            addObject(group);
         } else {
-            errorMessage("Cannot add group to a user node.", "Error");
+            errorMessage("Cannot add group to a user node.", "Error"); //Exception handler
         }
     }
 
@@ -90,7 +92,7 @@ public class TreeView extends JPanel {
         }
         return null;
     }
-
+    //Method for creating error pop messages.
     public static void errorMessage(String infoMessage, String titleBar) {
         JOptionPane.showMessageDialog(null, infoMessage, "InfoBox: " + titleBar, JOptionPane.INFORMATION_MESSAGE);
     }
@@ -98,47 +100,45 @@ public class TreeView extends JPanel {
     public JTree getTree() {
         return tree;
     }
-
+    //makes custom fonts for the nodes
     public class MyTreeCellRenderer extends DefaultTreeCellRenderer {
-    private Font regularFont;
-    private Font groupFont;
+        private Font regularFont;
+        private Font groupFont;
 
-    public MyTreeCellRenderer(Font font) {
-        regularFont = font;
-        groupFont = font.deriveFont(Font.BOLD); // Bold font style for groups
-    }
-
-    @Override
-    public Component getTreeCellRendererComponent(JTree tree, Object value,
-                                                  boolean sel, boolean exp, boolean leaf, int row, boolean hasFocus) {
-        super.getTreeCellRendererComponent(tree, value, sel, exp, leaf, row, hasFocus);
-
-        DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
-        Object userObject = node.getUserObject();
-
-        if (userObject instanceof NodeData) {
-            NodeData nodeData = (NodeData) userObject;
-
-            if (nodeData.isGroup()) {
-                // Customize group nodes with bold font
-                setFont(groupFont);
-            } else {
-                // Regular nodes use regular font
-                setFont(regularFont);
-            }
-        } else if (userObject instanceof User) {
-            User user = (User) userObject;
-            setText(user.getUserID()); // Set the IDname as the text of the tree node
-            setFont(regularFont);
+        public MyTreeCellRenderer(Font font) {
+            regularFont = font;
+            groupFont = regularFont.deriveFont(Font.BOLD);
         }
 
-        return this;
+        @Override
+        public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected,
+                boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
+
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+            Object userObject = node.getUserObject();
+
+            if (userObject instanceof NodeData) {
+                NodeData nodeData = (NodeData) userObject;
+
+                if (nodeData.isGroup()) {
+                    // Customize group nodes with bold font
+                    setFont(groupFont);
+                } else {
+                    // Regular nodes use regular font
+                    setFont(regularFont);
+                }
+
+                setText(nodeData.getNodeName());
+            } else if (userObject instanceof User) {
+                User user = (User) userObject;
+                setText(user.getUserID());
+                setFont(regularFont);
+            }
+
+            return this;
+        }
     }
-}
-
-
-
-
 
     public boolean doesUserExist(String username) {
         return doesUserExist(rootNode, username);
@@ -168,22 +168,25 @@ public class TreeView extends JPanel {
 
     private boolean isGroupNode(DefaultMutableTreeNode node) {
         Object userObject = node.getUserObject();
-        return (userObject instanceof NodeData) && ((NodeData) userObject).isGroup();
+        return (userObject instanceof Group);
     }
 
     public User getUserFromSelectedNode() {
         DefaultMutableTreeNode selectedNode = getSelectedNode();
         if (selectedNode != null) {
             Object userObject = selectedNode.getUserObject();
-            if (userObject instanceof User) {
-                return (User) userObject;
+            if (userObject instanceof DefaultMutableTreeNode) {
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) userObject;
+                Object nodeObject = node.getUserObject();
+                if (nodeObject instanceof NodeData) {
+                    NodeData nodeData = (NodeData) nodeObject;
+                    if (!nodeData.isGroup()) {
+                        return (User) nodeObject;
+                    }
+                }
             }
         }
         return null;
-
-
-
-
     }
 
     private static class NodeData {
@@ -209,32 +212,28 @@ public class TreeView extends JPanel {
         }
     }
 
-
-
-
-
     public User getUser(String userName) {
-    return getUser(rootNode, userName);
-}
+        return getUser(rootNode, userName);
+    }
 
-private User getUser(DefaultMutableTreeNode node, String userName) {
-    if (node == null) {
+    private User getUser(DefaultMutableTreeNode node, String userName) {
+        if (node == null) {
+            return null;
+        }
+
+        Object userObject = node.getUserObject();
+        if (userObject instanceof User && ((User) userObject).getUserID().equals(userName)) {
+            return (User) userObject;
+        }
+
+        for (int i = 0; i < node.getChildCount(); i++) {
+            DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) node.getChildAt(i);
+            User foundUser = getUser(childNode, userName);
+            if (foundUser != null) {
+                return foundUser;
+            }
+        }
+
         return null;
     }
-
-    Object userObject = node.getUserObject();
-    if (userObject instanceof User && ((User) userObject).getUserID().equals(userName)) {
-        return (User) userObject;
-    }
-
-    for (int i = 0; i < node.getChildCount(); i++) {
-        DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) node.getChildAt(i);
-        User foundUser = getUser(childNode, userName);
-        if (foundUser != null) {
-            return foundUser;
-        }
-    }
-
-    return null;
-}
 }

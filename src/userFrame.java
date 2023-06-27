@@ -12,10 +12,15 @@ import java.util.Enumeration;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeNode;
-//
-public class userFrame extends JFrame implements UserObserver{
+
+/*GUI for the users, contains Button to post tweets and a button to follow users along with a list view of both
+ * messages posted by themselve or users they follow and a list for users they follow
+ * also shows their user ID
+ */
+public class userFrame extends JFrame implements UserObserver {
 
     final private Font mainFont = new Font("Segoe print", Font.BOLD, 14);
+    final private Font titleFont = new Font("MonoSpaced", Font.BOLD, 26);
     JTextField tweet;
     JLabel userID;
     JList<String> followingList;
@@ -24,24 +29,27 @@ public class userFrame extends JFrame implements UserObserver{
     private DefaultListModel<String> followingListModel;
     private DefaultListModel<String> newsFeedListModel;
     private TreeView treeView2;
-    
+
     public userFrame(DefaultMutableTreeNode rootNode, User selectedUser, TreeView treeView) {
-        userID = new JLabel(selectedUser.getUserID());
-        userID.setFont(mainFont);
+        userID = new JLabel("User: " + selectedUser.getUserID());
+        userID.setFont(titleFont);
         this.selectedUser = selectedUser;
         followingListModel = new DefaultListModel<>();
         newsFeedListModel = new DefaultListModel<>();
         treeView2 = treeView;
         selectedUser.registerObserver(this);
-        System.out.println(selectedUser.getNewsFeed());
-         
+
+        // using java.util.date allow it to format the time stamp in a much more
+        // readable way.
+        System.out.println("User was created at: " + new java.util.Date(selectedUser.getCreationTime()));
 
         JButton followUser = new JButton("Follow User");
         followUser.setFont(mainFont);
         followUser.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String userName = JOptionPane.showInputDialog(userFrame.this, "Enter the ID of the user to follow:", "Follow User", JOptionPane.PLAIN_MESSAGE);
+                String userName = JOptionPane.showInputDialog(userFrame.this, "Enter the ID of the user to follow:",
+                        "Follow User", JOptionPane.PLAIN_MESSAGE);
                 if (userName != null && !userName.isEmpty()) {
                     User userToFollow = treeView.getUser(userName);
                     if (userToFollow != null) {
@@ -52,11 +60,13 @@ public class userFrame extends JFrame implements UserObserver{
                         for (String following : followings) {
                             model.addElement(following);
                         }
-                         userToFollow.addFollower(selectedUser.getUserID());
+                        userToFollow.addFollower(selectedUser.getUserID());
 
-                        JOptionPane.showMessageDialog(userFrame.this, "You are now following the user: " + userName, "Follow User", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(userFrame.this, "You are now following the user: " + userName,
+                                "Follow User", JOptionPane.INFORMATION_MESSAGE);
                     } else {
-                        JOptionPane.showMessageDialog(userFrame.this, "User with ID '" + userName + "' does not exist.", "User Not Found", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(userFrame.this, "User with ID '" + userName + "' does not exist.",
+                                "User Not Found", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -69,12 +79,12 @@ public class userFrame extends JFrame implements UserObserver{
             public void actionPerformed(ActionEvent e) {
                 String tweetText = tweet.getText();
                 if (!tweetText.isEmpty()) {
-                    selectedUser.postTweet(selectedUser.getUserID() + ": " + tweetText);
-                    JOptionPane.showMessageDialog(userFrame.this, "Tweet posted successfully.", "Post Tweet", JOptionPane.INFORMATION_MESSAGE);
+                    selectedUser.postTweet(selectedUser.getUserID() + ": " + tweetText, false);
+                    JOptionPane.showMessageDialog(userFrame.this, "Tweet posted successfully.", "Post Tweet",
+                            JOptionPane.INFORMATION_MESSAGE);
                     tweet.setText("");
                     updateNewsFeed();
-                    
-                 
+
                 }
             }
         });
@@ -115,15 +125,13 @@ public class userFrame extends JFrame implements UserObserver{
         // Add the current following list to the GUI
         followingListPanel.add(followingListScrollPane, BorderLayout.CENTER);
 
-
-
         newsFeedList = new JList<>(newsFeedListModel);
         newsFeedList.setFont(mainFont);
         // Populate the news feed list with the initial tweets
-         List<String> newsFeed = selectedUser.getNewsFeed();
-            for (String tweet : newsFeed) {
-        newsFeedListModel.addElement(tweet);
-    }
+        List<String> newsFeed = selectedUser.getNewsFeed();
+        for (String tweet : newsFeed) {
+            newsFeedListModel.addElement(tweet);
+        }
 
         JPanel newsFeedPanel = new JPanel();
         newsFeedPanel.setLayout(new BorderLayout());
@@ -134,7 +142,6 @@ public class userFrame extends JFrame implements UserObserver{
         newsFeedScrollPane.setBorder(BorderFactory.createEmptyBorder());
         newsFeedScrollPane.setPreferredSize(new Dimension(150, 200));
 
-       
         newsFeedPanel.add(newsFeedScrollPane, BorderLayout.CENTER);
 
         JPanel mainPanel = new JPanel();
@@ -156,15 +163,19 @@ public class userFrame extends JFrame implements UserObserver{
         setVisible(true);
     }
 
-    
-@Override
-        public void updateNewsFeed() {
+    @Override
+    public void updateNewsFeed() {
         SwingUtilities.invokeLater(() -> {
             newsFeedListModel.clear();
             List<String> newsFeed = selectedUser.getNewsFeed();
+
             for (String tweet : newsFeed) {
                 newsFeedListModel.addElement(tweet);
             }
+
+            long lastUpdateTime = selectedUser.getLastUpdateTime();
+            System.out.println("Update Time Stamp " + new java.util.Date(lastUpdateTime));
+
         });
     }
 

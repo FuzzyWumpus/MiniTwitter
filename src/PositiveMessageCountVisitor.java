@@ -1,4 +1,3 @@
-
 public class PositiveMessageCountVisitor implements UserVisitor {
     private int positiveMessageCount = 0;
 
